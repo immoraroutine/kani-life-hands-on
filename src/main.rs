@@ -1,29 +1,32 @@
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent},
-    execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
+use dotenvy::dotenv;
 use reqwest::Client;
-use std::io;
+use std::env;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv().ok();
+
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
 
     let client = Client::new();
-    let url = "https://kani-life-m6xtjae7da-an.a.run.app/api/command";
+    let url = env::var("URL").expect("URL is not set");
     let mut command = Command::Spawn {
-        name: "koko".to_string(),
-        hue: 300.0,
+        name: env::var("USER_NAME").expect("user_name is not set"),
+        hue: env::var("USER_HUE")
+            .expect("hue is not set")
+            .parse()
+            .expect("hue is not a number"),
     };
-    let token = request_server(url, &client, &command).await?;
+    let token = request_command(&url, &client, &command).await?;
 
     loop {
         // キー入力を待つ
-        if event::poll(Duration::from_nanos(1))? {
+        if event::poll(Duration::from_millis(1000))? {
             if let Event::Key(KeyEvent { code, .. }) = event::read()? {
                 match code {
                     // 左矢印キー
@@ -62,19 +65,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         command = Command::Ping;
                     }
                 }
-                request_server(url, &client, &command).await?;
+                request_command(&url, &client, &command).await?;
             }
         }
     }
 
     // 終了時にターミナルの設定を元に戻す
     disable_raw_mode()?;
-    execute!(stdout, crossterm::terminal::LeaveAlternateScreen)?;
 
     Ok(())
 }
 
-async fn request_server(
+async fn request_command(
     url: &str,
     client: &Client,
     command: &Command,
@@ -121,9 +123,9 @@ enum CommandResult {
     },
     Turn,
     Walk {
-        success: bool,
-        point: u16,
-        total_point: u16,
+        // success: bool,
+        // point: u16,
+        // total_point: u16,
     },
 }
 
